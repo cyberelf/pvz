@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>植物大战僵尸</title>
+    <style>
+        body {
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-wrapper {
+            display: flex;
+            gap: 20px;
+        }
+        .game-info {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            min-width: 200px;
+        }
+        .info-item {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        #gameContainer {
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid black;
+            background-color: #87CEEB;
+        }
+        .plant-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .auto-collect {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .reset-button {
+            width: 100%;
+            margin: 20px 0;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .reset-button:hover {
+            background-color: #ff6666;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="game-info">
+            <div class="info-item">🌞 阳光: <span id="sunAmount">500</span></div>
+            <div class="info-item">🎮 第 <span id="level">1</span> 关</div>
+            <div class="info-item">🌊 第 <span id="wave">1</span>/10 波</div>
+            <div class="info-item">🧟‍♂️ 僵尸数量: <span id="zombieCount">2</span></div>
+            <div class="info-item">⚡ 速度提升: <span id="speedBoost">0</span>%</div>
+            <button id="resetButton" class="reset-button">重新开始</button>
+            <div class="auto-collect">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoCollect">
+                    <span class="slider"></span>
+                </label>
+                <span>自动收集阳光</span>
+            </div>
+        </div>
+        <div id="gameContainer">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+    </div>
+    <script type="module">
+        import { Game } from './game.js';
+        window.onload = () => new Game();
+    </script>
+</body>
+</html> 
