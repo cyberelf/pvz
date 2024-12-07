@@ -1,6 +1,7 @@
 import { Plant, Zombie, Pea, Sun, PlantType } from './entities.js';
 import { GameLoop } from './gameLoop.js';
 import { UI } from './ui.js';
+import { LawnMower } from './entities.js';
 
 export class Game {
     constructor() {
@@ -16,6 +17,7 @@ export class Game {
         this.suns = [];
         this.sunAmount = 500;
         this.selectedPlant = null;
+        this.shovelSelected = false;  // 添加铲子选择状态
         
         // 初始化网格系统
         this.gridCols = 9;
@@ -41,12 +43,21 @@ export class Game {
         this.setupAutoCollect();
         this.setupInfoDisplay();
 
+        this.gameOver = false;  // 添加游戏结束标志
+
+        // 初始化小推车
+        this.lawnMowers = Array(this.gridRows).fill(null).map((_, i) => 
+            new LawnMower(
+                this.gridStartX - 50,  // 放在格子左侧
+                (i + 0.5) * this.cellHeight
+            )
+        );
+
         this.init();
     }
 
     init() {
         this.ui.addPlantSelectionButtons();
-        this.ui.addResetButton();
         this.setupEventListeners();
         this.spawnFirstZombie();
         this.gameLoop.start();
@@ -75,13 +86,20 @@ export class Game {
     }
 
     handleClick(event) {
+        if (this.gameOver) {
+            this.resetGame();
+            this.gameOver = false;
+            this.gameLoop.start();
+            return;
+        }
+
         const rect = this.canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
 
         // 检查是否点击了阳光
         for (let sun of this.suns) {
-            if (!sun.collected) {  // 只检查未被收集的阳光
+            if (!sun.collected) {
                 const dx = x - sun.x;
                 const dy = y - sun.y;
                 if (dx * dx + dy * dy < sun.size * sun.size) {
@@ -94,8 +112,31 @@ export class Game {
 
         // 获取点击的格子位置
         const gridPos = this.getGridPosition(x, y);
-        if (gridPos && this.selectedPlant) {
-            if (!this.grid[gridPos.row][gridPos.col]) {
+        if (gridPos) {
+            if (this.shovelSelected) {
+                // 如果选择了铲子，移除植物并回收阳光
+                const plant = this.grid[gridPos.row][gridPos.col];
+                if (plant) {
+                    // 计算回收的阳光
+                    const costs = {
+                        [PlantType.SUNFLOWER]: 50,
+                        [PlantType.PEASHOOTER]: 100,
+                        [PlantType.WALLNUT]: 50,
+                        [PlantType.SPIKEWEED]: 100
+                    };
+                    const refund = Math.floor(costs[plant.type] / 2);  // 回收一半阳光
+                    this.sunAmount += refund;
+
+                    // 移除植物
+                    this.grid[gridPos.row][gridPos.col] = null;
+                    this.plants = this.plants.filter(p => p !== plant);
+                    
+                    // 取消铲子选择
+                    this.shovelSelected = false;
+                    document.querySelector('.plant-button').classList.remove('selected');
+                }
+            } else if (this.selectedPlant && !this.grid[gridPos.row][gridPos.col]) {
+                // 种植新植物
                 const costs = {
                     [PlantType.SUNFLOWER]: 50,
                     [PlantType.PEASHOOTER]: 100,
@@ -110,6 +151,7 @@ export class Game {
                     this.grid[gridPos.row][gridPos.col] = plant;
                     this.sunAmount -= cost;
                     
+                    // 取消植物选择
                     this.selectedPlant = null;
                     document.querySelectorAll('.plant-button').forEach(btn => {
                         btn.style.backgroundColor = '#f0f0f0';
@@ -139,15 +181,20 @@ export class Game {
     }
 
     spawnFirstZombie() {
+        // 清空现有僵尸
+        this.zombies = [];
+        
         // 随机选择不同的道路
         let lanes = Array.from({length: this.gridRows}, (_, i) => i);
         this.shuffleArray(lanes);
         
-        // 生成第一波僵尸
+        // 生成第一波僵尸，确保从画布右侧开始
         const zombieSpeed = this.getZombieSpeed();
         for (let i = 0; i < 2; i++) {
             const y = (lanes[i] + 0.5) * this.cellHeight;
-            this.zombies.push(new Zombie(this.canvas.width, y, zombieSpeed));
+            // 确保僵尸从画布右侧开始
+            const x = this.canvas.width + 50;  // 添加一些额外距离
+            this.zombies.push(new Zombie(x, y, zombieSpeed));
         }
         
         this.zombieSpawned = true;
@@ -161,7 +208,7 @@ export class Game {
         console.log('Spawning new wave...'); // 添加调试信息
         
         setTimeout(() => {
-            // 检查是否需要升级关卡
+            // 检查是否要升级关卡
             if (this.waveCount % this.wavesPerLevel === 0) {
                 this.level++;
             }
@@ -180,7 +227,8 @@ export class Game {
             // 生成新一波僵尸
             for (let i = 0; i < zombieCount; i++) {
                 const y = (lanes[i % this.gridRows] + 0.5) * this.cellHeight;
-                this.zombies.push(new Zombie(this.canvas.width, y, zombieSpeed));
+                const x = this.canvas.width + 50;  // 确保从画布右侧开始
+                this.zombies.push(new Zombie(x, y, zombieSpeed));
             }
             
             console.log(`Spawned ${zombieCount} zombies`); // 添加调试信息
@@ -213,6 +261,8 @@ export class Game {
     }
 
     update() {
+        if (this.gameOver) return;  // 如果游戏结束就不再更新
+
         const currentTime = Date.now();
 
         // 更新植物
@@ -253,6 +303,12 @@ export class Game {
             let canMove = true;
             const zombieRow = Math.floor(zombie.y / this.cellHeight);
             
+            // 检查是否到达最左边
+            if (zombie.x <= this.gridStartX - zombie.size) {
+                this.handleGameOver();
+                return false;
+            }
+
             for (let plant of this.plants) {
                 const plantRow = Math.floor(plant.y / this.cellHeight);
                 if (plantRow === zombieRow && 
@@ -296,11 +352,56 @@ export class Game {
                 if (!sun.collected && sun.state === 'falling' && sun.y >= sun.originY) {
                     sun.collected = true;
                     this.sunAmount += 25;
-                    return true;  // 保持阳光在数组中直到消失
+                    return true;  // 保持阳光在数中直到消失
                 }
                 return sun.size > 0;  // 当阳光完全缩小后移除
             });
         }
+
+        // 更新小推车
+        this.lawnMowers.forEach(mower => {
+            if (!mower.used) {
+                mower.update();
+                
+                // 检查是否有僵尸触推车
+                if (!mower.active) {
+                    const mowerRow = Math.floor(mower.y / this.cellHeight);
+                    for (const zombie of this.zombies) {
+                        const zombieRow = Math.floor(zombie.y / this.cellHeight);
+                        if (zombieRow === mowerRow && 
+                            zombie.x <= this.gridStartX) {
+                            mower.active = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 如果小推车被激活清除同一行的僵尸
+                if (mower.active) {
+                    const mowerRow = Math.floor(mower.y / this.cellHeight);
+                    this.zombies = this.zombies.filter(zombie => {
+                        const zombieRow = Math.floor(zombie.y / this.cellHeight);
+                        return zombieRow !== mowerRow || zombie.x > mower.x + mower.size/2;
+                    });
+                }
+
+                // 如果小推车到达画布边缘，标记为已使用
+                if (mower.x > this.canvas.width) {
+                    mower.used = true;
+                }
+            }
+        });
+
+        // 修改游戏结束条件：只有当僵尸到达最左边且该行没有可用的小推车时才结束游戏
+        this.zombies.forEach(zombie => {
+            if (zombie.x <= this.gridStartX - zombie.size) {
+                const zombieRow = Math.floor(zombie.y / this.cellHeight);
+                const mower = this.lawnMowers[zombieRow];
+                if (mower.used) {
+                    this.handleGameOver();
+                }
+            }
+        });
 
         // 更新显示信息
         this.updateInfoDisplay();
@@ -352,6 +453,24 @@ export class Game {
         this.zombies.forEach(zombie => zombie.draw(this.ctx));
         this.peas.forEach(pea => pea.draw(this.ctx));
         this.suns.forEach(sun => sun.draw(this.ctx));
+
+        // 绘制小推车
+        this.lawnMowers.forEach(mower => mower.draw(this.ctx));
+
+        // 如果游戏结束，绘制游戏结束画面
+        if (this.gameOver) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '48px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText('游戏结束!', this.canvas.width/2, this.canvas.height/2 - 30);
+            
+            this.ctx.font = '24px Arial';
+            this.ctx.fillText('点击重新开始', this.canvas.width/2, this.canvas.height/2 + 30);
+        }
     }
 
     resetGame() {
@@ -361,21 +480,34 @@ export class Game {
         this.suns = [];
         this.sunAmount = 500;
         this.selectedPlant = null;
+        this.shovelSelected = false;
         this.waveCount = 0;
         this.level = 1;
         this.zombieSpawned = false;
+        this.isSpawningZombies = false;
+        this.gameOver = false;
+        this.lastZombieSpawnTime = Date.now();
         
+        // 重置网格
         this.grid = Array(this.gridRows).fill(null)
             .map(() => Array(this.gridCols).fill(null));
         
+        // 重置植物按钮状态
         document.querySelectorAll('.plant-button').forEach(btn => {
             btn.style.backgroundColor = '#f0f0f0';
             btn.style.borderColor = '#666';
         });
         
-        this.isSpawningZombies = false;
+        // 重置小推车
+        this.lawnMowers = Array(this.gridRows).fill(null).map((_, i) => 
+            new LawnMower(
+                this.gridStartX - 50,
+                (i + 0.5) * this.cellHeight
+            )
+        );
+        
+        // 生成第一波僵尸
         this.spawnFirstZombie();
-        this.lastZombieSpawnTime = Date.now();
     }
 
     setupAutoCollect() {
@@ -391,5 +523,19 @@ export class Game {
         this.waveDisplay = document.getElementById('wave');
         this.zombieCountDisplay = document.getElementById('zombieCount');
         this.speedBoostDisplay = document.getElementById('speedBoost');
+
+        // 添加重置按钮的事件监听器
+        const resetButton = document.getElementById('resetButton');
+        resetButton.addEventListener('click', () => {
+            this.resetGame();
+            this.gameOver = false;
+            this.gameLoop.running = true;
+            this.gameLoop.start();
+        });
+    }
+
+    handleGameOver() {
+        this.gameOver = true;
+        this.gameLoop.running = false;  // 使用 running 标志而不是直接调用 stop
     }
 } 

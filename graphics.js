@@ -1,9 +1,9 @@
 export class Graphics {
-    static createPeashooterSVG(ctx, x, y, size, time) {
+    static createPeashooterSVG(ctx, x, y, size, time, isFlashing) {
         // 基础颜色
-        const stemColor = '#2E7D32';  // 深绿色茎干
-        const headColor = '#4CAF50';  // 绿色头部
-        const mouthColor = '#1B5E20'; // 深绿色嘴部
+        const stemColor = isFlashing ? '#FF0000' : '#2E7D32';  // 深绿色茎干
+        const headColor = isFlashing ? '#FF0000' : '#4CAF50';  // 绿色头部
+        const mouthColor = isFlashing ? '#FF0000' : '#1B5E20'; // 深绿色嘴部
 
         // 茎干摆动动画
         const swayAmount = Math.sin(time / 500) * 5;
@@ -36,9 +36,9 @@ export class Graphics {
         ctx.restore();
     }
 
-    static createSunflowerSVG(ctx, x, y, size, time) {
-        const petalColor = '#FFD700';  // 金色花瓣
-        const centerColor = '#8B4513'; // 棕色中心
+    static createSunflowerSVG(ctx, x, y, size, time, isFlashing) {
+        const petalColor = isFlashing ? '#FF0000' : '#FFD700';  // 金色花瓣
+        const centerColor = isFlashing ? '#FF0000' : '#8B4513'; // 棕色中心
         const rotation = time / 1000;   // 旋转动画
 
         ctx.save();
@@ -63,9 +63,9 @@ export class Graphics {
         ctx.restore();
     }
 
-    static createWallnutSVG(ctx, x, y, size, time) {
-        const nutColor = '#8B4513';
-        const faceColor = '#654321';
+    static createWallnutSVG(ctx, x, y, size, time, isFlashing) {
+        const nutColor = isFlashing ? '#FF0000' : '#8B4513';
+        const faceColor = isFlashing ? '#FF0000' : '#654321';
         const wobble = Math.sin(time / 500) * 3;
 
         ctx.save();
@@ -96,9 +96,9 @@ export class Graphics {
         ctx.restore();
     }
 
-    static createSpikeweedSVG(ctx, x, y, size, time) {
-        const baseColor = '#696969';
-        const spikeColor = '#808080';
+    static createSpikeweedSVG(ctx, x, y, size, time, isFlashing) {
+        const baseColor = isFlashing ? '#FF0000' : '#696969';
+        const spikeColor = isFlashing ? '#FF0000' : '#808080';
         const pulseScale = Math.sin(time / 300) * 0.1 + 1;
 
         ctx.save();
@@ -130,9 +130,9 @@ export class Graphics {
         ctx.restore();
     }
 
-    static createZombieSVG(ctx, x, y, size, time) {
-        const bodyColor = '#90A4AE';
-        const clothesColor = '#4E342E';
+    static createZombieSVG(ctx, x, y, size, time, isFlashing) {
+        const bodyColor = isFlashing ? '#FF0000' : '#90A4AE';
+        const clothesColor = isFlashing ? '#FF0000' : '#4E342E';
         const walkCycle = Math.sin(time / 200) * 10;
 
         ctx.save();

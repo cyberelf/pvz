@@ -85,22 +85,23 @@ export class Plant {
 
     draw(ctx) {
         const time = Date.now();
+        const isFlashing = time < this.flashUntil;
         
         if (Plant.useDefaultShapes) {
             // ... 原来的默认形状绘制代码 ...
         } else {
             switch(this.type) {
                 case PlantType.PEASHOOTER:
-                    Graphics.createPeashooterSVG(ctx, this.x, this.y, this.size, time);
+                    Graphics.createPeashooterSVG(ctx, this.x, this.y, this.size, time, isFlashing);
                     break;
                 case PlantType.SUNFLOWER:
-                    Graphics.createSunflowerSVG(ctx, this.x, this.y, this.size, time);
+                    Graphics.createSunflowerSVG(ctx, this.x, this.y, this.size, time, isFlashing);
                     break;
                 case PlantType.WALLNUT:
-                    Graphics.createWallnutSVG(ctx, this.x, this.y, this.size, time);
+                    Graphics.createWallnutSVG(ctx, this.x, this.y, this.size, time, isFlashing);
                     break;
                 case PlantType.SPIKEWEED:
-                    Graphics.createSpikeweedSVG(ctx, this.x, this.y, this.size, time);
+                    Graphics.createSpikeweedSVG(ctx, this.x, this.y, this.size, time, isFlashing);
                     break;
             }
         }
@@ -154,11 +155,12 @@ export class Zombie {
 
     draw(ctx) {
         const time = Date.now();
+        const isFlashing = time < this.flashUntil;
         
         if (Zombie.useDefaultShapes) {
             // ... 原来的默认形状绘制代码 ...
         } else {
-            Graphics.createZombieSVG(ctx, this.x, this.y, this.size, time);
+            Graphics.createZombieSVG(ctx, this.x, this.y, this.size, time, isFlashing);
         }
         
         // 只显示数字血量
@@ -215,7 +217,7 @@ export class Sun {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.originY = y;  // 记录初始Y坐标（向日葵的位置��
+        this.originY = y;  // 记录初始Y坐标（向日葵的位置
         this.targetY = y - 100;  // 先向上飘100像素
         this.speed = 1;
         this.size = 30;
@@ -262,5 +264,48 @@ export class Sun {
         ctx.strokeStyle = '#FFA500';
         ctx.lineWidth = 2;
         ctx.stroke();
+    }
+}
+
+export class LawnMower {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 40;
+        this.speed = 5;
+        this.active = false;
+        this.used = false;
+    }
+
+    update() {
+        if (this.active) {
+            this.x += this.speed;
+        }
+    }
+
+    draw(ctx) {
+        if (this.used) return;  // 如果已使用就不绘制
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // 绘制小推车主体
+        ctx.fillStyle = '#666666';
+        ctx.fillRect(-this.size/2, -this.size/3, this.size, this.size/1.5);
+
+        // 绘制轮子
+        ctx.fillStyle = '#333333';
+        ctx.beginPath();
+        ctx.arc(-this.size/3, this.size/4, this.size/6, 0, Math.PI * 2);
+        ctx.arc(this.size/3, this.size/4, this.size/6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 绘制刀片
+        ctx.fillStyle = '#CCCCCC';
+        ctx.beginPath();
+        ctx.arc(this.size/2, 0, this.size/3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
     }
 } 
