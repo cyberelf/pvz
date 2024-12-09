@@ -53,6 +53,9 @@ export class Game {
             )
         );
 
+        this.speedMultiplier = 1;  // 添加速度倍数
+        this.setupSpeedControl();  // 添加速度控制设置
+
         this.init();
     }
 
@@ -122,10 +125,11 @@ export class Game {
                         [PlantType.SUNFLOWER]: 50,
                         [PlantType.PEASHOOTER]: 100,
                         [PlantType.WALLNUT]: 50,
-                        [PlantType.SPIKEWEED]: 100
+                        [PlantType.SPIKEWEED]: 100,
+                        [PlantType.TORCHWOOD]: 175
                     };
-                    const refund = Math.floor(costs[plant.type] / 2);  // 回收一半阳光
-                    this.sunAmount += refund;
+                    const refund = Math.floor(costs[plant.type] / 2);  // 确保返还值为整数
+                    this.sunAmount = Math.floor(this.sunAmount + refund);  // 确保总阳光数为整数
 
                     // 移除植物
                     this.grid[gridPos.row][gridPos.col] = null;
@@ -141,7 +145,8 @@ export class Game {
                     [PlantType.SUNFLOWER]: 50,
                     [PlantType.PEASHOOTER]: 100,
                     [PlantType.WALLNUT]: 50,
-                    [PlantType.SPIKEWEED]: 100
+                    [PlantType.SPIKEWEED]: 100,
+                    [PlantType.TORCHWOOD]: 175  // 添加火炬树桩的价格
                 };
                 const cost = costs[this.selectedPlant];
                 if (this.sunAmount >= cost) {
@@ -163,14 +168,15 @@ export class Game {
     }
 
     getZombieSpeed() {
-        // 每卡增加30%速度，每10波增加20%速度
+        // 修改僵尸速度计算
+        const baseSpeed = this.baseZombieSpeed * this.speedMultiplier;
         const levelSpeedIncrease = (this.level - 1) * 0.3;
         const waveSpeedIncrease = Math.min(Math.floor((this.waveCount % this.wavesPerLevel) / 10) * 0.2, 0.8);
-        return this.baseZombieSpeed * (1 + levelSpeedIncrease + waveSpeedIncrease);
+        return baseSpeed * (1 + levelSpeedIncrease + waveSpeedIncrease);
     }
 
     getZombiesCount() {
-        // 每关卡基础数量+1，每3波增加1个，最多7个
+        // 每关卡基础数量+1，每3波增加1个，最多7��
         const baseCount = Math.min(2 + (this.level - 1), 4);
         return Math.min(baseCount + Math.floor((this.waveCount % this.wavesPerLevel) / 3), 7);
     }
@@ -181,7 +187,7 @@ export class Game {
     }
 
     spawnFirstZombie() {
-        // 清空现有僵尸
+        // 清空所有僵尸
         this.zombies = [];
         
         // 随机选择不同的道路
@@ -256,7 +262,7 @@ export class Game {
     }
 
     getSpawnInterval() {
-        // 根据波数返回生成间隔，最短4秒
+        // 根据波数返回成间隔，最短4秒
         return Math.max(8000 - this.waveCount * 200, 4000);
     }
 
@@ -273,7 +279,8 @@ export class Game {
 
         // 更新豌豆和碰撞检测
         this.peas = this.peas.filter(pea => {
-            pea.update();
+            pea.speed = 8 * this.speedMultiplier;  // 调整豌豆速度
+            pea.update(this);  // 传入 game 实例以检查火炬树桩
             
             for (let zombie of this.zombies) {
                 if (Math.abs(pea.y - zombie.y) < this.cellHeight/2 && 
@@ -287,7 +294,10 @@ export class Game {
         });
 
         // 新阳光
-        this.suns.forEach(sun => sun.update());
+        this.suns.forEach(sun => {
+            sun.speed = 1 * this.speedMultiplier;  // 调整阳光速度
+            sun.update();
+        });
 
         // 按时间间隔生成僵尸
         if (!this.isSpawningZombies && 
@@ -297,8 +307,9 @@ export class Game {
         }
 
         // 更新僵尸
-        let zombieKilled = false;  // 添加标志来跟踪是否有僵尸被杀死
+        let zombieKilled = false;  // 添加志来跟踪是否有僵尸被杀死
         this.zombies = this.zombies.filter(zombie => {
+            zombie.update(this);  // 传递 game 实例
             const currentTime = Date.now();
             let canMove = true;
             const zombieRow = Math.floor(zombie.y / this.cellHeight);
@@ -361,8 +372,7 @@ export class Game {
         // 更新小推车
         this.lawnMowers.forEach(mower => {
             if (!mower.used) {
-                mower.update();
-                
+                mower.update(this);  // 传递 game 实例
                 // 检查是否有僵尸触推车
                 if (!mower.active) {
                     const mowerRow = Math.floor(mower.y / this.cellHeight);
@@ -392,7 +402,7 @@ export class Game {
             }
         });
 
-        // 修改游戏结束条件：只有当僵尸到达最左边且该行没有可用的小推车时才结束游戏
+        // 修改游戏结束���件：只有当僵尸到达最左边且该行没有可用的小推车时才结束游戏
         this.zombies.forEach(zombie => {
             if (zombie.x <= this.gridStartX - zombie.size) {
                 const zombieRow = Math.floor(zombie.y / this.cellHeight);
@@ -408,7 +418,14 @@ export class Game {
     }
 
     updateInfoDisplay() {
-        this.sunAmountDisplay.textContent = this.sunAmount;
+        // 确保获取到正确的DOM元素
+        if (!this.sunAmountDisplay) {
+            this.sunAmountDisplay = document.getElementById('sunAmount');
+        }
+        if (this.sunAmountDisplay) {
+            this.sunAmountDisplay.textContent = Math.floor(this.sunAmount);
+        }
+
         this.levelDisplay.textContent = this.level;
         this.waveDisplay.textContent = 
             `${this.waveCount % this.wavesPerLevel || this.wavesPerLevel}`;
@@ -457,7 +474,7 @@ export class Game {
         // 绘制小推车
         this.lawnMowers.forEach(mower => mower.draw(this.ctx));
 
-        // 如果游戏结束，绘制游戏结束画面
+        // 如果游戏结束，��制游戏结束画面
         if (this.gameOver) {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -474,6 +491,9 @@ export class Game {
     }
 
     resetGame() {
+        // 停止当前游戏循环
+        this.gameLoop.stop();
+
         this.plants = [];
         this.zombies = [];
         this.peas = [];
@@ -488,6 +508,9 @@ export class Game {
         this.gameOver = false;
         this.lastZombieSpawnTime = Date.now();
         
+        // 重置僵尸速度
+        this.baseZombieSpeed = 0.2;  // 重置基础速度
+        
         // 重置网格
         this.grid = Array(this.gridRows).fill(null)
             .map(() => Array(this.gridCols).fill(null));
@@ -496,6 +519,11 @@ export class Game {
         document.querySelectorAll('.plant-button').forEach(btn => {
             btn.style.backgroundColor = '#f0f0f0';
             btn.style.borderColor = '#666';
+            // 移除选中标记
+            const selectedMark = btn.querySelector('div[style*="position: absolute"]');
+            if (selectedMark) {
+                btn.removeChild(selectedMark);
+            }
         });
         
         // 重置小推车
@@ -508,6 +536,17 @@ export class Game {
         
         // 生成第一波僵尸
         this.spawnFirstZombie();
+
+        // 重新启动游戏循环
+        this.gameLoop = new GameLoop(this);  // 创建新的游戏循环实例
+        this.gameLoop.start();
+
+        this.speedMultiplier = 1;  // 重置速度倍数
+        // 重置速度按钮
+        document.querySelectorAll('.speed-button').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.getElementById('speed1x').classList.add('selected');
     }
 
     setupAutoCollect() {
@@ -529,13 +568,28 @@ export class Game {
         resetButton.addEventListener('click', () => {
             this.resetGame();
             this.gameOver = false;
-            this.gameLoop.running = true;
-            this.gameLoop.start();
         });
     }
 
     handleGameOver() {
         this.gameOver = true;
-        this.gameLoop.running = false;  // 使用 running 标志而不是直接调用 stop
+        this.gameLoop.stop();  // 使用 stop 方法停止循环
+    }
+
+    setupSpeedControl() {
+        const speeds = [1, 2, 4, 8];
+        speeds.forEach(speed => {
+            const button = document.getElementById(`speed${speed}x`);
+            if (button) {
+                button.addEventListener('click', () => {
+                    this.speedMultiplier = speed;
+                    // 更新按钮样式
+                    document.querySelectorAll('.speed-button').forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                    button.classList.add('selected');
+                });
+            }
+        });
     }
 } 

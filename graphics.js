@@ -166,4 +166,36 @@ export class Graphics {
 
         ctx.restore();
     }
+
+    static createTorchwoodSVG(ctx, x, y, size, time, isFlashing) {
+        const stumpColor = isFlashing ? '#FF0000' : '#8B4513';
+        const fireColor = isFlashing ? '#FF0000' : '#FF4500';
+        const flameTime = time / 100;
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // 树桩主体
+        ctx.beginPath();
+        ctx.fillStyle = stumpColor;
+        ctx.fillRect(-size/3, -size/3, size*2/3, size*2/3);
+
+        // 火焰动画
+        ctx.fillStyle = fireColor;
+        for (let i = 0; i < 3; i++) {
+            ctx.save();
+            ctx.translate(0, -size/6);
+            ctx.rotate(i * Math.PI * 2/3 + flameTime * 0.5);
+            
+            ctx.beginPath();
+            ctx.moveTo(0, -size/2);
+            ctx.quadraticCurveTo(size/4, -size/4, 0, 0);
+            ctx.quadraticCurveTo(-size/4, -size/4, 0, -size/2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
 } 

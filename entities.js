@@ -5,7 +5,8 @@ export const PlantType = {
     SUNFLOWER: 'sunflower',
     PEASHOOTER: 'peashooter',
     WALLNUT: 'wallnut',
-    SPIKEWEED: 'spikeweed'
+    SPIKEWEED: 'spikeweed',
+    TORCHWOOD: 'torchwood'
 };
 
 // 植物基类
@@ -30,11 +31,15 @@ export class Plant {
             case PlantType.SPIKEWEED:
                 this.health = 100;
                 break;
+            case PlantType.TORCHWOOD:
+                this.health = 200;
+                break;
             default:
                 this.health = 100;
         }
         this.size = type === PlantType.SPIKEWEED ? 40 : 
-                    type === PlantType.SUNFLOWER ? 40 : 50;
+                    type === PlantType.SUNFLOWER ? 40 :
+                    type === PlantType.TORCHWOOD ? 50 : 50;
         this.lastShootTime = Date.now();
         this.lastSunTime = Date.now();
         this.lastDamageTime = Date.now();
@@ -57,19 +62,19 @@ export class Plant {
                 return plantRow === zombieRow && zombie.x > this.x;
             });
             
-            if (hasZombieInLane && currentTime - this.lastShootTime > 1500) {
+            if (hasZombieInLane && currentTime - this.lastShootTime > 1500 / game.speedMultiplier) {
                 game.peas.push(new Pea(this.x + this.size/2, this.y));
                 this.lastShootTime = currentTime;
             }
         } 
         else if (this.type === PlantType.SUNFLOWER) {
-            if (currentTime - this.lastSunTime > 10000) {
+            if (currentTime - this.lastSunTime > 10000 / game.speedMultiplier) {
                 game.suns.push(new Sun(this.x, this.y));
                 this.lastSunTime = currentTime;
             }
         }
         else if (this.type === PlantType.SPIKEWEED) {
-            if (currentTime - this.lastDamageTime > 1000) {
+            if (currentTime - this.lastDamageTime > 1000 / game.speedMultiplier) {
                 const plantRow = Math.floor(this.y / game.cellHeight);
                 game.zombies.forEach(zombie => {
                     const zombieRow = Math.floor(zombie.y / game.cellHeight);
@@ -103,10 +108,13 @@ export class Plant {
                 case PlantType.SPIKEWEED:
                     Graphics.createSpikeweedSVG(ctx, this.x, this.y, this.size, time, isFlashing);
                     break;
+                case PlantType.TORCHWOOD:
+                    Graphics.createTorchwoodSVG(ctx, this.x, this.y, this.size, time, isFlashing);
+                    break;
             }
         }
         
-        // 只显示数字血量
+        // 显示血量
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 3;
@@ -114,13 +122,11 @@ export class Plant {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // 先绘制描边
         ctx.strokeText(
             Math.ceil(this.health),
             this.x,
             this.y + this.size/2 + 15
         );
-        // 再绘制文字
         ctx.fillText(
             Math.ceil(this.health),
             this.x,
@@ -150,7 +156,7 @@ export class Zombie {
     }
 
     move() {
-        this.x -= this.speed;
+        this.x -= this.speed * (this.game ? this.game.speedMultiplier : 1);
     }
 
     draw(ctx) {
@@ -184,6 +190,11 @@ export class Zombie {
             this.y - this.size/2 - 10
         );
     }
+
+    update(game) {
+        this.game = game;  // 保存game引用以在move中使用
+        this.attackInterval = 1000 / game.speedMultiplier;
+    }
 }
 
 export class Pea {
@@ -193,23 +204,66 @@ export class Pea {
         this.speed = 8;
         this.damage = 20;
         this.size = 12;
+        this.isFirePea = false;  // 添加火焰状态
     }
 
-    update() {
+    update(game) {
         this.x += this.speed;
+
+        // 检查是否经过火炬树桩
+        for (const plant of game.plants) {
+            if (plant.type === PlantType.TORCHWOOD &&
+                Math.abs(this.y - plant.y) < game.cellHeight/2 &&
+                Math.abs(this.x - plant.x) < plant.size/2 &&
+                !this.isFirePea) {
+                this.isFirePea = true;
+                this.damage *= 2;  // 伤害翻倍
+                break;
+            }
+        }
     }
 
     draw(ctx) {
-        ctx.fillStyle = '#32CD32';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size/1.5, 0, Math.PI * 2);
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        if (this.isFirePea) {
+            // 绘制火焰豌豆
+            const time = Date.now() / 100;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+
+            // 火焰效果
+            for (let i = 0; i < 5; i++) {
+                ctx.save();
+                ctx.rotate(i * Math.PI / 2.5 + time);
+                ctx.beginPath();
+                ctx.fillStyle = '#FF4500';
+                ctx.globalAlpha = 0.7 + Math.sin(time + i) * 0.3;
+                ctx.moveTo(0, -this.size);
+                ctx.quadraticCurveTo(this.size, -this.size/2, 0, -this.size/2);
+                ctx.quadraticCurveTo(-this.size, -this.size/2, 0, -this.size);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 中心豌豆
+            ctx.beginPath();
+            ctx.fillStyle = '#FF6B00';
+            ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        } else {
+            // 原来的豌豆绘制代码
+            ctx.fillStyle = '#32CD32';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size/1.5, 0, Math.PI * 2);
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
     }
 }
 
@@ -233,7 +287,7 @@ export class Sun {
         if (this.collected) {
             // 如果被收集，向上飘然后消失
             this.y -= this.speed * 2;
-            this.size = Math.max(0, this.size - 1);  // 逐渐缩小
+            this.size = Math.max(0, this.size - 1);  // 逐渐缩��
             return;
         }
 
@@ -277,9 +331,9 @@ export class LawnMower {
         this.used = false;
     }
 
-    update() {
+    update(game) {
         if (this.active) {
-            this.x += this.speed;
+            this.x += this.speed * game.speedMultiplier;
         }
     }
 

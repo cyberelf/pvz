@@ -21,6 +21,7 @@ export class UI {
             justify-content: space-between;
             transition: all 0.3s;
             margin: 0 5px;
+            position: relative;
         `;
 
         // 创建图形容器
@@ -54,6 +55,24 @@ export class UI {
             ctx.lineTo(5, 25);
             ctx.closePath();
         }
+        else if (plantType === PlantType.TORCHWOOD) {
+            // 绘制树桩
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(15, 15, 20, 20);
+
+            // 绘制火焰
+            ctx.fillStyle = '#FF4500';
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(25, 5);
+                ctx.quadraticCurveTo(35, 15, 25, 20);
+                ctx.quadraticCurveTo(15, 15, 25, 5);
+                ctx.fill();
+                ctx.translate(25, 15);
+                ctx.rotate(Math.PI * 2 / 3);
+                ctx.translate(-25, -15);
+            }
+        }
         else {
             ctx.fillStyle = plantType === PlantType.SUNFLOWER ? 'yellow' : 'green';
             ctx.arc(25, 25, 20, 0, Math.PI * 2);
@@ -78,7 +97,8 @@ export class UI {
 
         // 添加点击事件
         button.onclick = () => {
-            // 移除其他按钮的选中状态
+            // 取消铲子选择
+            this.game.shovelSelected = false;
             document.querySelectorAll('.plant-button').forEach(btn => {
                 btn.style.backgroundColor = '#f0f0f0';
                 btn.style.borderColor = '#666';
@@ -94,6 +114,20 @@ export class UI {
                 this.game.selectedPlant = plantType;
                 button.style.backgroundColor = '#e0ffe0';
                 button.style.borderColor = '#00ff00';
+                
+                // 添加选中标记
+                const selectedMark = document.createElement('div');
+                selectedMark.style.cssText = `
+                    position: absolute;
+                    left: -5px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 4px;
+                    height: 80%;
+                    background-color: #00ff00;
+                    border-radius: 2px;
+                `;
+                button.appendChild(selectedMark);
             }
         };
 
@@ -117,7 +151,8 @@ export class UI {
             { type: PlantType.SUNFLOWER, name: '向日葵', cost: '50' },
             { type: PlantType.PEASHOOTER, name: '豌豆射手', cost: '100' },
             { type: PlantType.WALLNUT, name: '坚果', cost: '50' },
-            { type: PlantType.SPIKEWEED, name: '地刺', cost: '100' }
+            { type: PlantType.SPIKEWEED, name: '地刺', cost: '100' },
+            { type: PlantType.TORCHWOOD, name: '火炬树桩', cost: '175' }
         ];
 
         plants.forEach(plant => {

@@ -117,6 +117,29 @@
         .shovel-button:hover {
             background-color: #A0522D;
         }
+        .speed-control {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .speed-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #666;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .speed-button:hover {
+            background-color: #888;
+        }
+        .speed-button.selected {
+            background-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -128,6 +151,12 @@
             <div class="info-item">🧟‍♂️ 僵尸数量: <span id="zombieCount">2</span></div>
             <div class="info-item">⚡ 速度提升: <span id="speedBoost">0</span>%</div>
             <button id="resetButton" class="reset-button">重新开始</button>
+            <div class="speed-control">
+                <button id="speed1x" class="speed-button selected">1x</button>
+                <button id="speed2x" class="speed-button">2x</button>
+                <button id="speed4x" class="speed-button">4x</button>
+                <button id="speed8x" class="speed-button">8x</button>
+            </div>
             <div class="auto-collect">
                 <label class="toggle-switch">
                     <input type="checkbox" id="autoCollect">
