@@ -2,6 +2,7 @@ import { Plant, Zombie, Pea, Sun, PlantType } from './entities.js';
 import { GameLoop } from './gameLoop.js';
 import { UI } from './ui.js';
 import { LawnMower } from './entities.js';
+import { AudioManager } from './audio.js';
 
 export class Game {
     constructor() {
@@ -9,6 +10,7 @@ export class Game {
         this.ctx = this.canvas.getContext('2d');
         this.ui = new UI(this);
         this.gameLoop = new GameLoop(this);
+        this.audioManager = new AudioManager();  // 初始化音频管理器
         
         // 初始化游戏状态
         this.plants = [];
@@ -64,6 +66,59 @@ export class Game {
         this.setupEventListeners();
         this.spawnFirstZombie();
         this.gameLoop.start();
+        this.setupMusicControls();
+    }
+
+    setupMusicControls() {
+        // 创建音乐控制容器
+        const musicControls = document.createElement('div');
+        musicControls.style.position = 'absolute';
+        musicControls.style.top = '10px';
+        musicControls.style.right = '10px';
+        musicControls.style.zIndex = '1000';
+        musicControls.style.display = 'flex';
+        musicControls.style.gap = '10px';
+
+        // 创建播放按钮
+        const playButton = document.createElement('button');
+        playButton.textContent = '▶️ 播放音乐';
+        playButton.style.padding = '5px 10px';
+        playButton.style.cursor = 'pointer';
+        playButton.style.backgroundColor = '#4CAF50';
+        playButton.style.color = 'white';
+        playButton.style.border = 'none';
+        playButton.style.borderRadius = '4px';
+
+        // 创建音量按钮
+        const muteButton = document.createElement('button');
+        muteButton.textContent = '🔊';
+        muteButton.style.padding = '5px 10px';
+        muteButton.style.cursor = 'pointer';
+        muteButton.style.backgroundColor = '#f0f0f0';
+        muteButton.style.border = 'none';
+        muteButton.style.borderRadius = '4px';
+
+        // 添加播放按钮事件
+        playButton.addEventListener('click', () => {
+            this.audioManager.playBackgroundMusic();
+            this.musicStarted = true;
+            playButton.style.display = 'none';  // 播放后隐藏播放按钮
+            muteButton.style.display = 'block'; // 显示音量控制按钮
+        });
+
+        // 添加音量控制事件
+        muteButton.addEventListener('click', () => {
+            this.audioManager.toggleMute();
+            muteButton.textContent = this.audioManager.isMuted ? '🔇' : '🔊';
+        });
+
+        // 初始状态下隐藏音量按钮
+        muteButton.style.display = 'none';
+
+        // 将按钮添加到控制容器
+        musicControls.appendChild(playButton);
+        musicControls.appendChild(muteButton);
+        document.body.appendChild(musicControls);
     }
 
     setupEventListeners() {
@@ -176,7 +231,7 @@ export class Game {
     }
 
     getZombiesCount() {
-        // 每关卡基础数量+1，每3波增加1个，最多7��
+        // 每关卡基础数量+1，每3波增加1个，最多7
         const baseCount = Math.min(2 + (this.level - 1), 4);
         return Math.min(baseCount + Math.floor((this.waveCount % this.wavesPerLevel) / 3), 7);
     }
@@ -187,7 +242,7 @@ export class Game {
     }
 
     spawnFirstZombie() {
-        // 清空所有僵尸
+        // 空所有僵尸
         this.zombies = [];
         
         // 随机选择不同的道路
@@ -202,6 +257,8 @@ export class Game {
             const x = this.canvas.width + 50;  // 添加一些额外距离
             this.zombies.push(new Zombie(x, y, zombieSpeed));
         }
+        // 只播放一次僵尸叫声
+        this.audioManager.playSound('zombieGroan');
         
         this.zombieSpawned = true;
         this.waveCount = 1;
@@ -214,7 +271,7 @@ export class Game {
         console.log('Spawning new wave...'); // 添加调试信息
         
         setTimeout(() => {
-            // 检查是否要升级关卡
+            // 查是否要升级关卡
             if (this.waveCount % this.wavesPerLevel === 0) {
                 this.level++;
             }
@@ -236,6 +293,8 @@ export class Game {
                 const x = this.canvas.width + 50;  // 确保从画布右侧开始
                 this.zombies.push(new Zombie(x, y, zombieSpeed));
             }
+            // 每波僵尸只播放一次叫声
+            this.audioManager.playSound('zombieGroan');
             
             console.log(`Spawned ${zombieCount} zombies`); // 添加调试信息
             this.isSpawningZombies = false;
@@ -262,7 +321,7 @@ export class Game {
     }
 
     getSpawnInterval() {
-        // 根据波数返回成间隔，最短4秒
+        // 据波数返回成间隔，最短4秒
         return Math.max(8000 - this.waveCount * 200, 4000);
     }
 
@@ -287,6 +346,7 @@ export class Game {
                     pea.x >= zombie.x && 
                     pea.x <= zombie.x + zombie.size) {
                     zombie.takeDamage(pea.damage);
+                    this.audioManager.playSound('peaHit');  // 播放子弹击中音效
                     return false;
                 }
             }
@@ -331,6 +391,7 @@ export class Game {
                         if (currentTime - zombie.lastAttackTime >= zombie.attackInterval) {
                             plant.takeDamage(zombie.attackDamage);
                             zombie.lastAttackTime = currentTime;
+                            this.audioManager.playSound('zombieEat');  // 播放吃植物的声音
                             
                             if (plant.health <= 0) {
                                 this.removePlant(plant);
@@ -402,7 +463,7 @@ export class Game {
             }
         });
 
-        // 修改游戏结束���件：只有当僵尸到达最左边且该行没有可用的小推车时才结束游戏
+        // 修改游戏结束件：只有当僵尸到达最左边且该行没有可的小推车时才结束游戏
         this.zombies.forEach(zombie => {
             if (zombie.x <= this.gridStartX - zombie.size) {
                 const zombieRow = Math.floor(zombie.y / this.cellHeight);
@@ -474,7 +535,7 @@ export class Game {
         // 绘制小推车
         this.lawnMowers.forEach(mower => mower.draw(this.ctx));
 
-        // 如果游戏结束，��制游戏结束画面
+        // 如果游戏结束，制游戏结束画面
         if (this.gameOver) {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -511,11 +572,11 @@ export class Game {
         // 重置僵尸速度
         this.baseZombieSpeed = 0.2;  // 重置基础速度
         
-        // 重置网格
+        // ��置网格
         this.grid = Array(this.gridRows).fill(null)
             .map(() => Array(this.gridCols).fill(null));
         
-        // 重置植物按钮状态
+        // 重植物按钮状态
         document.querySelectorAll('.plant-button').forEach(btn => {
             btn.style.backgroundColor = '#f0f0f0';
             btn.style.borderColor = '#666';
@@ -547,6 +608,9 @@ export class Game {
             btn.classList.remove('selected');
         });
         document.getElementById('speed1x').classList.add('selected');
+
+        this.audioManager.stop();  // 停止背景音乐
+        this.audioManager.playBackgroundMusic();  // 重新始播放
     }
 
     setupAutoCollect() {
