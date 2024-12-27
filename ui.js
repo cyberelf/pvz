@@ -152,7 +152,8 @@ export class UI {
             { type: PlantType.PEASHOOTER, name: '豌豆射手', cost: '100' },
             { type: PlantType.WALLNUT, name: '坚果', cost: '50' },
             { type: PlantType.SPIKEWEED, name: '地刺', cost: '100' },
-            { type: PlantType.TORCHWOOD, name: '火炬树桩', cost: '175' }
+            { type: PlantType.TORCHWOOD, name: '火炬树桩', cost: '175' },
+            { type: PlantType.POTATO_MINE, name: '土豆地雷', cost: '25' }
         ];
 
         plants.forEach(plant => {

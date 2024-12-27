@@ -1,4 +1,4 @@
-import { Plant, Zombie, Pea, Sun, PlantType } from './entities.js';
+import { Plant, Zombie, Pea, Sun, PlantType, Explosion } from './entities.js';
 import { GameLoop } from './gameLoop.js';
 import { UI } from './ui.js';
 import { LawnMower } from './entities.js';
@@ -17,6 +17,7 @@ export class Game {
         this.zombies = [];
         this.peas = [];
         this.suns = [];
+        this.explosions = [];  // 添加爆炸效果数组
         this.sunAmount = 500;
         this.selectedPlant = null;
         this.shovelSelected = false;  // 添加铲子选择状态
@@ -181,10 +182,11 @@ export class Game {
                         [PlantType.PEASHOOTER]: 100,
                         [PlantType.WALLNUT]: 50,
                         [PlantType.SPIKEWEED]: 100,
-                        [PlantType.TORCHWOOD]: 175
+                        [PlantType.TORCHWOOD]: 175,
+                        [PlantType.POTATO_MINE]: 25  // 添加土豆地雷的价格
                     };
-                    const refund = Math.floor(costs[plant.type] / 2);  // 确保返还值为整数
-                    this.sunAmount = Math.floor(this.sunAmount + refund);  // 确保总阳光数为整数
+                    const refund = Math.floor(costs[plant.type] / 2);
+                    this.sunAmount = Math.floor(this.sunAmount + refund);
 
                     // 移除植物
                     this.grid[gridPos.row][gridPos.col] = null;
@@ -201,7 +203,8 @@ export class Game {
                     [PlantType.PEASHOOTER]: 100,
                     [PlantType.WALLNUT]: 50,
                     [PlantType.SPIKEWEED]: 100,
-                    [PlantType.TORCHWOOD]: 175  // 添加火炬树桩的价格
+                    [PlantType.TORCHWOOD]: 175,
+                    [PlantType.POTATO_MINE]: 25  // 添加土豆地雷的价格
                 };
                 const cost = costs[this.selectedPlant];
                 if (this.sunAmount >= cost) {
@@ -333,7 +336,39 @@ export class Game {
         // 更新植物
         this.plants = this.plants.filter(plant => {
             plant.update(this);
+            
+            // 检查土豆地雷是否触发
+            if (plant.type === PlantType.POTATO_MINE && plant.isReady) {
+                const plantRow = Math.floor(plant.y / this.cellHeight);
+                for (let zombie of this.zombies) {
+                    const zombieRow = Math.floor(zombie.y / this.cellHeight);
+                    if (plantRow === zombieRow && 
+                        Math.abs(zombie.x - plant.x) < plant.size) {
+                        // 土豆地雷爆炸，造成大量伤害
+                        zombie.takeDamage(1800);
+                        this.audioManager.playSound('potatoMine');
+                        
+                        // 创建爆炸效果
+                        this.explosions.push(new Explosion(plant.x, plant.y));
+                        
+                        // 从网格中移除植物
+                        const gridPos = this.getGridPosition(plant.x, plant.y);
+                        if (gridPos) {
+                            this.grid[gridPos.row][gridPos.col] = null;
+                        }
+                        
+                        return false;  // 移除土豆地雷
+                    }
+                }
+            }
+            
             return plant.health > 0;
+        });
+
+        // 更新爆炸效果
+        this.explosions = this.explosions.filter(explosion => {
+            explosion.update();
+            return !explosion.isExpired();
         });
 
         // 更新豌豆和碰撞检测
@@ -531,9 +566,10 @@ export class Game {
         this.zombies.forEach(zombie => zombie.draw(this.ctx));
         this.peas.forEach(pea => pea.draw(this.ctx));
         this.suns.forEach(sun => sun.draw(this.ctx));
-
-        // 绘制小推车
         this.lawnMowers.forEach(mower => mower.draw(this.ctx));
+
+        // 绘制爆炸效果
+        this.explosions.forEach(explosion => explosion.draw(this.ctx));
 
         // 如果游戏结束，制游戏结束画面
         if (this.gameOver) {
@@ -572,7 +608,7 @@ export class Game {
         // 重置僵尸速度
         this.baseZombieSpeed = 0.2;  // 重置基础速度
         
-        // ��置网格
+        // 重置网格
         this.grid = Array(this.gridRows).fill(null)
             .map(() => Array(this.gridCols).fill(null));
         
@@ -611,6 +647,8 @@ export class Game {
 
         this.audioManager.stop();  // 停止背景音乐
         this.audioManager.playBackgroundMusic();  // 重新始播放
+
+        this.explosions = [];  // 重置爆炸效果
     }
 
     setupAutoCollect() {

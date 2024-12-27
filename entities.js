@@ -2,11 +2,12 @@ import { Graphics } from './graphics.js';
 
 // 植物类型枚举
 export const PlantType = {
-    SUNFLOWER: 'sunflower',
-    PEASHOOTER: 'peashooter',
-    WALLNUT: 'wallnut',
-    SPIKEWEED: 'spikeweed',
-    TORCHWOOD: 'torchwood'
+    SUNFLOWER: 'SUNFLOWER',
+    PEASHOOTER: 'PEASHOOTER',
+    WALLNUT: 'WALLNUT',
+    SPIKEWEED: 'SPIKEWEED',
+    TORCHWOOD: 'TORCHWOOD',
+    POTATO_MINE: 'POTATO_MINE'  // 添加土豆地雷类型
 };
 
 // 植物基类
@@ -17,121 +18,116 @@ export class Plant {
         this.x = x;
         this.y = y;
         this.type = type;
-        // 不同植物有不同的生命值
-        switch(type) {
-            case PlantType.WALLNUT:
-                this.health = 400;
+        this.size = 40;
+        this.lastShotTime = 0;
+        this.shootInterval = 2000;
+        this.health = 100;
+        this.isReady = false;  // 用于土豆地雷的准备状态
+        this.readyTime = 0;    // 用于土豆地雷的准备时间计时
+
+        // 根据类型设置特定属性
+        switch (type) {
+            case PlantType.SUNFLOWER:
+                this.health = 80;
+                this.lastSunTime = Date.now();
+                this.sunInterval = 10000;
                 break;
             case PlantType.PEASHOOTER:
-                this.health = 150;
-                break;
-            case PlantType.SUNFLOWER:
                 this.health = 100;
+                break;
+            case PlantType.WALLNUT:
+                this.health = 400;
                 break;
             case PlantType.SPIKEWEED:
                 this.health = 100;
                 break;
             case PlantType.TORCHWOOD:
-                this.health = 200;
-                break;
-            default:
                 this.health = 100;
+                break;
+            case PlantType.POTATO_MINE:
+                this.health = 50;
+                this.isReady = false;
+                this.readyTime = Date.now() + 15000;  // 15秒后准备完毕
+                break;
         }
-        this.size = type === PlantType.SPIKEWEED ? 40 : 
-                    type === PlantType.SUNFLOWER ? 40 :
-                    type === PlantType.TORCHWOOD ? 50 : 50;
-        this.lastShootTime = Date.now();
-        this.lastSunTime = Date.now();
-        this.lastDamageTime = Date.now();
-        this.flashUntil = 0;
-        this.maxHealth = this.health;
-    }
-
-    takeDamage(damage) {
-        this.health -= damage;
-        this.flashUntil = Date.now() + 200;
     }
 
     update(game) {
         const currentTime = Date.now();
-        
-        if (this.type === PlantType.PEASHOOTER) {
-            const plantRow = Math.floor(this.y / game.cellHeight);
-            const hasZombieInLane = game.zombies.some(zombie => {
-                const zombieRow = Math.floor(zombie.y / game.cellHeight);
-                return plantRow === zombieRow && zombie.x > this.x;
-            });
-            
-            if (hasZombieInLane && currentTime - this.lastShootTime > 1500 / game.speedMultiplier) {
-                game.peas.push(new Pea(this.x + this.size/2, this.y));
-                this.lastShootTime = currentTime;
-            }
-        } 
-        else if (this.type === PlantType.SUNFLOWER) {
-            if (currentTime - this.lastSunTime > 10000 / game.speedMultiplier) {
-                game.suns.push(new Sun(this.x, this.y));
-                this.lastSunTime = currentTime;
-            }
-        }
-        else if (this.type === PlantType.SPIKEWEED) {
-            if (currentTime - this.lastDamageTime > 1000 / game.speedMultiplier) {
-                const plantRow = Math.floor(this.y / game.cellHeight);
-                game.zombies.forEach(zombie => {
-                    const zombieRow = Math.floor(zombie.y / game.cellHeight);
-                    if (plantRow === zombieRow && 
-                        Math.abs(zombie.x - this.x) < this.size) {
-                        zombie.takeDamage(10);
+
+        switch (this.type) {
+            case PlantType.SUNFLOWER:
+                if (currentTime - this.lastSunTime >= this.sunInterval) {
+                    game.suns.push(new Sun(this.x, this.y - 20));
+                    this.lastSunTime = currentTime;
+                }
+                break;
+            case PlantType.PEASHOOTER:
+                if (currentTime - this.lastShotTime >= this.shootInterval) {
+                    // 检查这一行是否有僵尸
+                    const hasZombieInRow = game.zombies.some(zombie => 
+                        Math.abs(zombie.y - this.y) < game.cellHeight/2 && 
+                        zombie.x > this.x
+                    );
+                    if (hasZombieInRow) {
+                        game.peas.push(new Pea(this.x + 20, this.y));
+                        this.lastShotTime = currentTime;
                     }
-                });
-                this.lastDamageTime = currentTime;
-            }
+                }
+                break;
+            case PlantType.POTATO_MINE:
+                // 更新土豆地雷的准备状态
+                if (!this.isReady && currentTime >= this.readyTime) {
+                    this.isReady = true;
+                }
+                break;
         }
     }
 
     draw(ctx) {
-        const time = Date.now();
-        const isFlashing = time < this.flashUntil;
-        
-        if (Plant.useDefaultShapes) {
-            // ... 原来的默认形状绘制代码 ...
-        } else {
-            switch(this.type) {
-                case PlantType.PEASHOOTER:
-                    Graphics.createPeashooterSVG(ctx, this.x, this.y, this.size, time, isFlashing);
-                    break;
-                case PlantType.SUNFLOWER:
-                    Graphics.createSunflowerSVG(ctx, this.x, this.y, this.size, time, isFlashing);
-                    break;
-                case PlantType.WALLNUT:
-                    Graphics.createWallnutSVG(ctx, this.x, this.y, this.size, time, isFlashing);
-                    break;
-                case PlantType.SPIKEWEED:
-                    Graphics.createSpikeweedSVG(ctx, this.x, this.y, this.size, time, isFlashing);
-                    break;
-                case PlantType.TORCHWOOD:
-                    Graphics.createTorchwoodSVG(ctx, this.x, this.y, this.size, time, isFlashing);
-                    break;
-            }
+        switch (this.type) {
+            case PlantType.SUNFLOWER:
+                ctx.fillStyle = '#FFD700';
+                break;
+            case PlantType.PEASHOOTER:
+                ctx.fillStyle = '#32CD32';
+                break;
+            case PlantType.WALLNUT:
+                ctx.fillStyle = '#8B4513';
+                break;
+            case PlantType.SPIKEWEED:
+                ctx.fillStyle = '#696969';
+                break;
+            case PlantType.TORCHWOOD:
+                ctx.fillStyle = '#FF4500';
+                break;
+            case PlantType.POTATO_MINE:
+                // 根据准备状态显示不同颜色
+                ctx.fillStyle = this.isReady ? '#8B4513' : '#D2691E';
+                break;
         }
-        
-        // 显示血量
-        ctx.fillStyle = 'white';
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 3;
-        ctx.font = '16px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        ctx.strokeText(
-            Math.ceil(this.health),
-            this.x,
-            this.y + this.size/2 + 15
-        );
-        ctx.fillText(
-            Math.ceil(this.health),
-            this.x,
-            this.y + this.size/2 + 15
-        );
+
+        // 绘制植物主体
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 为土豆地雷添加准备状态指示
+        if (this.type === PlantType.POTATO_MINE && !this.isReady) {
+            // 绘制准备进度条
+            const progress = 1 - (this.readyTime - Date.now()) / 15000;
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(this.x - 20, this.y - 30, 40 * Math.max(0, Math.min(1, progress)), 5);
+        }
+
+        // 显示血量条
+        const healthPercentage = this.health / (this.type === PlantType.WALLNUT ? 400 : 100);
+        ctx.fillStyle = `rgb(${255 * (1 - healthPercentage)}, ${255 * healthPercentage}, 0)`;
+        ctx.fillRect(this.x - 20, this.y + 25, 40 * healthPercentage, 5);
+    }
+
+    takeDamage(damage) {
+        this.health -= damage;
     }
 }
 
@@ -359,6 +355,81 @@ export class LawnMower {
         ctx.beginPath();
         ctx.arc(this.size/2, 0, this.size/3, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// 添加爆炸效果类
+export class Explosion {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 40;
+        this.createTime = Date.now();
+        this.duration = 1000;  // 爆炸效果持续1秒
+        this.particles = [];
+        
+        // 创建爆炸粒子
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const speed = 2 + Math.random() * 2;
+            this.particles.push({
+                x: this.x,
+                y: this.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 5 + Math.random() * 5,
+                alpha: 1
+            });
+        }
+    }
+
+    isExpired() {
+        return Date.now() - this.createTime >= this.duration;
+    }
+
+    update() {
+        const progress = (Date.now() - this.createTime) / this.duration;
+        
+        this.particles.forEach(particle => {
+            // 更新位置
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            // 更新透明度
+            particle.alpha = 1 - progress;
+            // 粒子逐渐变小
+            particle.size *= 0.95;
+        });
+    }
+
+    draw(ctx) {
+        ctx.save();
+        
+        // 绘制爆炸光环
+        const progress = (Date.now() - this.createTime) / this.duration;
+        const radius = this.size * (1 + progress * 2);
+        const alpha = 1 - progress;
+        
+        // 绘制外圈光环
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 165, 0, ${alpha * 0.3})`;
+        ctx.fill();
+        
+        // 绘制内圈光环
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius * 0.7, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 69, 0, ${alpha * 0.5})`;
+        ctx.fill();
+
+        // 绘制爆炸粒子
+        this.particles.forEach(particle => {
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 69, 0, ${particle.alpha})`;
+            ctx.fill();
+        });
 
         ctx.restore();
     }

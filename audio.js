@@ -9,7 +9,8 @@ export class AudioManager {
         this.sounds = {
             zombieGroan: new Audio('assets/zombie_groan.mp3'),
             zombieEat: new Audio('assets/zombie_eat.mp3'),
-            peaHit: new Audio('assets/pea_hit.mp3')
+            peaHit: new Audio('assets/pea_hit.mp3'),
+            potatoMine: new Audio('assets/Potato_mine.ogg')
         };
 
         // 设置音效音量
@@ -17,9 +18,12 @@ export class AudioManager {
             sound.volume = 0.5;
         });
         
-        // 特别调整子弹击中音效的音量
+        // 特别调整音效音量
         if (this.sounds.peaHit) {
             this.sounds.peaHit.volume = 0.3;
+        }
+        if (this.sounds.potatoMine) {
+            this.sounds.potatoMine.volume = 0.6;
         }
         
         // 添加音量控制
